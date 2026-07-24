@@ -131,7 +131,7 @@ async def ingest(settings: Settings) -> int:
         print("VOYAGE_API_KEY is required to ingest (see .env.example)", file=sys.stderr)
         raise SystemExit(1)
 
-    embedder = VoyageEmbedder(settings.voyage_api_key, settings.voyage_model)
+    embedder = VoyageEmbedder(settings.voyage_api_key, settings.voyage_model, max_retries_429=5)
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
 

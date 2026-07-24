@@ -7,6 +7,7 @@ providers: everything becomes a RetrievalError the caller can handle cleanly.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 
@@ -18,7 +19,17 @@ class RetrievalError(Exception):
 
 
 class VoyageEmbedder:
-    def __init__(self, api_key: str, model: str, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        timeout_seconds: float = 30.0,
+        max_retries_429: int = 0,
+    ) -> None:
+        # Retries suit batch ingestion; the interactive query path keeps the
+        # default 0 so a rate-limited embedder degrades to an un-grounded
+        # answer instantly instead of stalling the student.
+        self.max_retries_429 = max_retries_429
         self.model = model
         self._client = httpx.AsyncClient(
             base_url="https://api.voyageai.com/v1",
@@ -28,17 +39,31 @@ class VoyageEmbedder:
 
     async def embed(self, texts: list[str], input_type: str) -> list[list[float]]:
         """input_type is "document" for ingestion, "query" for questions —
-        Voyage prepends different instructions to each, improving retrieval."""
+        Voyage prepends different instructions to each, improving retrieval.
+
+        429s are retried with backoff: Voyage's free tier has a tight
+        requests-per-minute cap, which batch ingestion can exceed.
+        """
+        attempts = 0
         try:
-            response = await self._client.post(
-                "/embeddings",
-                json={"input": texts, "model": self.model, "input_type": input_type},
-            )
-            response.raise_for_status()
-            data = response.json()["data"]
-            return [item["embedding"] for item in data]
-        except httpx.HTTPStatusError as exc:
-            raise RetrievalError(f"voyage returned HTTP {exc.response.status_code}") from exc
+            while True:
+                try:
+                    response = await self._client.post(
+                        "/embeddings",
+                        json={"input": texts, "model": self.model, "input_type": input_type},
+                    )
+                    response.raise_for_status()
+                    data = response.json()["data"]
+                    return [item["embedding"] for item in data]
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 429 and attempts < self.max_retries_429:
+                        attempts += 1
+                        delay = float(exc.response.headers.get("retry-after", 21 * attempts))
+                        await asyncio.sleep(delay)
+                        continue
+                    raise RetrievalError(
+                        f"voyage returned HTTP {exc.response.status_code}"
+                    ) from exc
         except httpx.HTTPError as exc:
             raise RetrievalError(f"voyage request failed: {type(exc).__name__}") from exc
         except (KeyError, IndexError, TypeError) as exc:
