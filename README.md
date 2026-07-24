@@ -181,3 +181,21 @@ LinBot/
 **Verified:** all 21 tests green; live server boots with the fake provider, answers `/ask`, returns the §2 error contract exactly, and logs each request with model attribution; missing config refuses to boot with a readable message.
 
 **Next session:** Push to GitHub, deploy to Railway per `DEPLOY.md` with a real `DEEPSEEK_API_KEY`, and confirm the first real model answers land in the production `requests` table. Then start accumulating Phase 1 traffic.
+
+### Session 4 — Deployed to production, and a fourth provider
+
+**Goal:** Get the service live on Railway, and add an Anthropic (Claude) provider for testing.
+
+**What we worked on:**
+
+- Pushed the repo to GitHub (`alexlinyx/lin-bot`); CI runs lint \+ tests on every push.  
+- Deployed to Railway: the app service and a managed Postgres in one project (an initial separate-project Postgres couldn't use Railway's private networking — the fix was a Postgres *inside* the app's project, wired via a `${{Postgres.DATABASE_URL}}` reference variable). Public URL: `https://lin-bot-production.up.railway.app`.  
+- **Verified the deployed stack plumbing-first**: booted with `PROVIDER=fake` before spending any tokens — health check, a logged `/ask` round-trip into production Postgres with model attribution, migrations auto-applied on boot, and the loud config failure confirmed in the crash logs from the first (unconfigured) deploy. The design worked exactly as intended: the crashed first deploy *was* the fail-loudly behavior.  
+- Added an **Anthropic provider** (`PROVIDER=anthropic`). Unlike DeepSeek and HF endpoints, Anthropic's Messages API is not OpenAI-compatible, so this one uses the official `anthropic` SDK rather than the shared OpenAI-style client — a nice illustration that the seam accommodates providers with entirely different wire formats. Claude's adaptive thinking is enabled; safety-classifier refusals are treated as provider errors so the router's fallback path can catch them.
+
+**Decisions recorded:**
+
+- Default Claude model is `claude-opus-4-8`, configurable via `ANTHROPIC_MODEL_NAME`.  
+- A provider refusal (HTTP 200 with `stop_reason: "refusal"`) maps to the same `ProviderError` as a network failure — the student gets a fallback answer or a clean 502, never a half-empty response.
+
+**Next session:** Set a real provider API key in Railway, flip `PROVIDER` off `fake`, and verify the first real model answer lands in the production `requests` table. Then start accumulating Phase 1 traffic.

@@ -13,7 +13,7 @@ from typing import Literal
 from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ProviderName = Literal["fake", "deepseek", "hf"]
+ProviderName = Literal["fake", "deepseek", "hf", "anthropic"]
 
 
 def normalize_database_url(url: str) -> str:
@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     hf_endpoint_url: str | None = None
     hf_token: str | None = None
     hf_model_name: str = "linbot-v1"
+
+    # Anthropic Claude (alternative hosted provider for testing/comparison)
+    anthropic_api_key: str | None = None
+    anthropic_model_name: str = "claude-opus-4-8"
 
     # Storage
     database_url: str
@@ -77,6 +81,8 @@ class Settings(BaseSettings):
                 raise ValueError("provider 'hf' is configured but HF_ENDPOINT_URL is missing")
             if not self.hf_token:
                 raise ValueError("provider 'hf' is configured but HF_TOKEN is missing")
+        if "anthropic" in in_use and not self.anthropic_api_key:
+            raise ValueError("provider 'anthropic' is configured but ANTHROPIC_API_KEY is missing")
         return self
 
 

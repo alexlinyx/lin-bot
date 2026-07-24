@@ -33,6 +33,10 @@ def _build_provider(name: str, settings: Settings, cache: dict[str, Provider]) -
             from linbot.model.providers.hf_endpoint import build_hf_provider
 
             cache[name] = build_hf_provider(settings)
+        elif name == "anthropic":
+            from linbot.model.providers.anthropic_provider import build_anthropic_provider
+
+            cache[name] = build_anthropic_provider(settings)
         else:  # unreachable: config validates provider names
             raise ValueError(f"unknown provider {name!r}")
     return cache[name]

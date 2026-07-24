@@ -23,6 +23,11 @@ def test_fallback_provider_requirements_also_checked():
         make(provider="fake", fallback_provider="deepseek", database_url="sqlite+aiosqlite://")
 
 
+def test_anthropic_requires_api_key():
+    with pytest.raises(ValidationError, match="ANTHROPIC_API_KEY"):
+        make(provider="anthropic", database_url="sqlite+aiosqlite://")
+
+
 def test_canary_percent_requires_canary_provider():
     with pytest.raises(ValidationError, match="CANARY_PROVIDER"):
         make(provider="fake", canary_percent=10, database_url="sqlite+aiosqlite://")
