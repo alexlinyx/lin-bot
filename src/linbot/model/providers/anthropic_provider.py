@@ -15,7 +15,7 @@ import time
 import anthropic
 
 from linbot.config import Settings
-from linbot.model.base import Answer, ProviderError
+from linbot.model.base import Answer, History, ProviderError
 from linbot.model.prompts import SYSTEM_PROMPT, build_user_message
 
 
@@ -26,7 +26,12 @@ class AnthropicProvider:
         self.model = model
         self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)
 
-    async def generate_answer(self, question: str, context: list[str] | None = None) -> Answer:
+    async def generate_answer(
+        self,
+        question: str,
+        context: list[str] | None = None,
+        history: History | None = None,
+    ) -> Answer:
         # Adaptive thinking exists on Claude 4.6+ models only; sending it to
         # Haiku 4.5 (or older) returns a 400, so it's applied conditionally.
         extra: dict = {}
@@ -39,7 +44,10 @@ class AnthropicProvider:
                 model=self.model,
                 max_tokens=16000,
                 system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": build_user_message(question, context)}],
+                messages=[
+                    *(history or []),
+                    {"role": "user", "content": build_user_message(question, context)},
+                ],
                 **extra,
             )
         except anthropic.APIStatusError as exc:

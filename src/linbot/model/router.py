@@ -11,7 +11,7 @@ from __future__ import annotations
 import random
 from dataclasses import replace
 
-from linbot.model.base import Answer, Provider, ProviderError
+from linbot.model.base import Answer, History, Provider, ProviderError
 
 
 class ModelRouter:
@@ -34,14 +34,19 @@ class ModelRouter:
             return self.candidate
         return self.primary
 
-    async def answer(self, question: str, context: list[str] | None = None) -> Answer:
+    async def answer(
+        self,
+        question: str,
+        context: list[str] | None = None,
+        history: History | None = None,
+    ) -> Answer:
         chosen = self._choose()
         try:
-            return await chosen.generate_answer(question, context)
+            return await chosen.generate_answer(question, context, history)
         except ProviderError:
             if self.fallback is None or self.fallback is chosen:
                 raise
             # A cold or failing primary degrades to a known-good provider,
             # not to an error in the student's face (ROADMAP §12).
-            result = await self.fallback.generate_answer(question, context)
+            result = await self.fallback.generate_answer(question, context, history)
             return replace(result, fallback_used=True)

@@ -24,7 +24,15 @@ class Answer:
     fallback_used: bool = False
 
 
+History = list[dict[str, str]]  # [{"role": "user"|"assistant", "content": ...}]
+
+
 class Provider(Protocol):
     name: str
 
-    async def generate_answer(self, question: str, context: list[str] | None = None) -> Answer: ...
+    async def generate_answer(
+        self,
+        question: str,
+        context: list[str] | None = None,
+        history: History | None = None,
+    ) -> Answer: ...

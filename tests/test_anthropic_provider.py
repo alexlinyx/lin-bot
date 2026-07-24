@@ -63,6 +63,25 @@ async def test_anthropic_success_extracts_text_blocks():
 
 
 @respx.mock
+async def test_anthropic_history_precedes_question():
+    route = respx.post("https://api.anthropic.com/v1/messages").mock(
+        return_value=Response(200, json=message_body([{"type": "text", "text": "ok"}]))
+    )
+    provider = make_provider()
+    history = [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
+    await provider.generate_answer("next question", history=history)
+    await provider.aclose()
+
+    import json
+
+    messages = json.loads(route.calls.last.request.content)["messages"]
+    assert messages == [*history, {"role": "user", "content": "next question"}]
+
+
+@respx.mock
 async def test_anthropic_adaptive_thinking_sent_for_supporting_models():
     route = respx.post("https://api.anthropic.com/v1/messages").mock(
         return_value=Response(

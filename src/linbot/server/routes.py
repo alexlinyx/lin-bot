@@ -21,6 +21,22 @@ from linbot.storage.log import log_request
 router = APIRouter()
 
 
+MAX_HISTORY_MESSAGES = 20
+MAX_HISTORY_MESSAGE_CHARS = 8000
+
+
+def _sanitize_history(history) -> list[dict[str, str]]:
+    """Client-supplied history is untrusted input: bound its size and keep the
+    shape model APIs require (first message must be from the user)."""
+    trimmed = [
+        {"role": m.role, "content": m.content[:MAX_HISTORY_MESSAGE_CHARS]}
+        for m in history[-MAX_HISTORY_MESSAGES:]
+    ]
+    while trimmed and trimmed[0]["role"] != "user":
+        trimmed.pop(0)
+    return trimmed
+
+
 def _client_id(request: Request) -> str:
     # Behind a PaaS proxy the real caller is in X-Forwarded-For; direct
     # connections fall back to the socket address.
@@ -59,6 +75,10 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
     if not state.limiter.allow(client_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded, try again shortly")
 
+    # Conversation history rides in from the client and goes straight to the
+    # model call — it is never stored, so a page refresh resets the session.
+    history = _sanitize_history(payload.history)
+
     # Retrieval (RAG): ground the answer in site content when a retriever is
     # configured. Retrieval failures degrade to an un-grounded answer.
     context: list[str] | None = None
@@ -70,7 +90,7 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
             retrieved_sources = json.dumps([r.source_url for r in retrieved])
 
     try:
-        answer = await state.model_router.answer(question, context)
+        answer = await state.model_router.answer(question, context, history)
     except ProviderError as exc:
         # Log the failure too — error rows are part of the operational record —
         # but return a clean 502, never a stack trace (ROADMAP §3). Logged

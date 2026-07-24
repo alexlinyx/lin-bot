@@ -162,7 +162,7 @@ Steps 1–7 are pass one. The phased model-rollout work (§9) and evaluation har
 
 - **Scheduling / calendar** — no time-based features in pass one.  
 - **Mailbox / email** — no sending or receiving mail.  
-- **Persistence** — no database; the service is stateless. Conversations aren't remembered between requests.  
+- **Persistence of conversations** — the service is stateless. Conversation history lives only in the browser tab and rides along with each request (bounded server-side to the last 20 messages); nothing is stored across sessions and a page refresh resets the conversation. This is a deliberate privacy/simplicity stance, not a gap.  
 - **Auth for end users** — the first pass assumes a trusted caller.
 
 Each is a natural "next chapter." Recording them here means when future-you returns, the omissions read as decisions with a paper trail, not gaps.

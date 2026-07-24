@@ -66,6 +66,11 @@ CHAT_PAGE = """<!doctype html>
   const q = document.getElementById("q");
   const send = document.getElementById("send");
 
+  // Conversation history lives only in this array — in-memory, per tab.
+  // Refreshing the page discards it; nothing is stored anywhere else.
+  const history = [];
+  const MAX_HISTORY = 20;
+
   function add(cls, text) {
     const div = document.createElement("div");
     div.className = "msg " + cls;
@@ -87,12 +92,17 @@ CHAT_PAGE = """<!doctype html>
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
       });
       const body = await res.json();
       pending.remove();
-      if (res.ok) add("bot", body.answer);
-      else add("err", body.error || ("error " + res.status));
+      if (res.ok) {
+        add("bot", body.answer);
+        history.push({ role: "user", content: question });
+        history.push({ role: "assistant", content: body.answer });
+      } else {
+        add("err", body.error || ("error " + res.status));
+      }
     } catch {
       pending.remove();
       add("err", "network error — try again");

@@ -65,6 +65,47 @@ async def test_provider_failure_is_clean_502_and_logged(app, client):
     assert rows[0].answer is None
 
 
+async def test_history_reaches_provider_and_is_not_stored(app, client):
+    history = [
+        {"role": "user", "content": "What is BCIL?"},
+        {"role": "assistant", "content": "The Belldegrun Center for Innovative Leadership."},
+    ]
+    response = await client.post(
+        "/ask", json={"question": "who runs it?", "history": history}
+    )
+    assert response.status_code == 200
+
+    fake_provider = app.state.model_router.primary
+    assert fake_provider.last_history == history
+
+    # Only the new turn is logged — history is never persisted.
+    async with app.state.session_factory() as session:
+        rows = (await session.execute(select(RequestLog))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].question == "who runs it?"
+
+
+async def test_history_is_trimmed_and_starts_with_user(app, client):
+    history = [{"role": "assistant", "content": "orphan"}] + [
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"} for i in range(30)
+    ]
+    response = await client.post("/ask", json={"question": "q", "history": history})
+    assert response.status_code == 200
+
+    received = app.state.model_router.primary.last_history
+    assert len(received) <= 20
+    assert received[0]["role"] == "user"
+    assert received[-1] == {"role": "assistant", "content": "m29"}
+
+
+async def test_invalid_history_role_is_400(client):
+    response = await client.post(
+        "/ask",
+        json={"question": "q", "history": [{"role": "system", "content": "evil override"}]},
+    )
+    assert response.status_code == 400
+
+
 async def test_retrieved_context_reaches_provider_and_is_logged(app, client):
     import json
 

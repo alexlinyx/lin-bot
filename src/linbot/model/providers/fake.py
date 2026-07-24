@@ -16,10 +16,17 @@ class FakeProvider:
         self.fail = fail
         self.calls = 0
         self.last_context: list[str] | None = None
+        self.last_history: list[dict[str, str]] | None = None
 
-    async def generate_answer(self, question: str, context: list[str] | None = None) -> Answer:
+    async def generate_answer(
+        self,
+        question: str,
+        context: list[str] | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> Answer:
         self.calls += 1
         self.last_context = context
+        self.last_history = history
         if self.fail:
             raise ProviderError("fake provider configured to fail")
         return Answer(

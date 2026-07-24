@@ -218,3 +218,20 @@ LinBot/
 - Re-ingestion is a manual CLI (`python -m linbot.ingest`), run after site updates.
 
 **Next session:** Ingest for real once `VOYAGE_API_KEY` exists, verify grounded answers cite site facts, and fill in `llms-full.txt` / the stub pages with real content — retrieval quality is bounded by what the site actually says.
+
+### Session 6 — Custom domain and in-tab conversation context
+
+**Goal:** Serve the bot at `agent.alexlinyx.com`, and support follow-up questions without giving LinBot any memory.
+
+**What we worked on:**
+
+- Ingested the site for real (21 chunks, Voyage embeddings) and verified grounded answers end-to-end — the bot now correctly explains BCIL, cites site links, and logs which pages grounded each answer. Added 429 retry-with-backoff for ingestion (Voyage's unfunded tier is rate-limited to ~3 requests/min; the interactive path instead degrades instantly to un-grounded).  
+- Pointed **agent.alexlinyx.com** at the Railway service (custom domain \+ auto-renewed TLS; CNAME \+ verification TXT in Cloudflare, DNS-only). Chose a subdomain over an `alexlinyx.com/agent` path: GitHub Pages can't proxy paths, and a separate origin isolates the bot from the main site.  
+- Added **in-tab conversation context**: the chat page keeps history in a JavaScript array and sends it with each request; providers prepend it to the model call. The server stores nothing — refresh the page and the conversation is gone. History is untrusted input, so the server bounds it (last 20 messages, capped length, must start with a user turn, roles restricted to user/assistant so the request body can never smuggle a system prompt).
+
+**Decisions recorded:**
+
+- **LinBot has no memory by design.** Conversation context exists only in the browser tab for the life of the page. The Postgres request log remains write-only training/eval data — nothing ever reads it back into a prompt.  
+- The subdomain is the canonical URL; the Railway default URL remains as an alias.
+
+**Next session:** Fill in the site's stub pages and re-ingest; consider funding the Voyage account (raises the embedding rate limit from ~3 to ~2000 requests/min) so retrieval never silently degrades.
