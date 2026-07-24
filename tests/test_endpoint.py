@@ -4,6 +4,13 @@ from linbot.model.providers.fake import FakeProvider
 from linbot.storage.models import RequestLog
 
 
+async def test_chat_page_served_at_root(client):
+    response = await client.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "LinBot" in response.text
+
+
 async def test_healthz(client):
     response = await client.get("/healthz")
     assert response.status_code == 200

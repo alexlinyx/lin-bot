@@ -8,9 +8,11 @@ ModelRouter and returns JSON.
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi.responses import HTMLResponse
 
 from linbot.model.base import ProviderError
 from linbot.model.prompts import SYSTEM_PROMPT_VERSION
+from linbot.server.chat_page import CHAT_PAGE
 from linbot.server.schemas import AskRequest, AskResponse
 from linbot.storage.log import log_request
 
@@ -29,6 +31,11 @@ def _client_id(request: Request) -> str:
 @router.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}
+
+
+@router.get("/", response_class=HTMLResponse)
+async def chat() -> str:
+    return CHAT_PAGE
 
 
 @router.post("/ask", response_model=AskResponse)
