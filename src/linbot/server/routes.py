@@ -7,6 +7,8 @@ ModelRouter and returns JSON.
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
@@ -57,8 +59,18 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
     if not state.limiter.allow(client_id):
         raise HTTPException(status_code=429, detail="rate limit exceeded, try again shortly")
 
+    # Retrieval (RAG): ground the answer in site content when a retriever is
+    # configured. Retrieval failures degrade to an un-grounded answer.
+    context: list[str] | None = None
+    retrieved_sources: str | None = None
+    if state.retriever is not None:
+        retrieved = await state.retriever.retrieve(question)
+        if retrieved:
+            context = [r.as_context() for r in retrieved]
+            retrieved_sources = json.dumps([r.source_url for r in retrieved])
+
     try:
-        answer = await state.model_router.answer(question)
+        answer = await state.model_router.answer(question, context)
     except ProviderError as exc:
         # Log the failure too — error rows are part of the operational record —
         # but return a clean 502, never a stack trace (ROADMAP §3). Logged
@@ -85,5 +97,6 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
         fallback_used=answer.fallback_used,
         client_id=client_id,
         system_prompt_version=SYSTEM_PROMPT_VERSION,
+        retrieved_sources=retrieved_sources,
     )
     return AskResponse(answer=answer.text)

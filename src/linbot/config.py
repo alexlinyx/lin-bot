@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_model_name: str = "claude-haiku-4-5"
 
+    # Retrieval (RAG) over the course website. Optional: without a Voyage key
+    # the app answers un-grounded; ingestion requires it.
+    voyage_api_key: str | None = None
+    voyage_model: str = "voyage-3.5-lite"
+    rag_source_url: str = "https://alexlinyx.com/llms.txt"
+    rag_top_k: int = 4
+    rag_min_similarity: float = 0.3
+
     # Storage
     database_url: str
 

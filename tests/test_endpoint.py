@@ -65,6 +65,41 @@ async def test_provider_failure_is_clean_502_and_logged(app, client):
     assert rows[0].answer is None
 
 
+async def test_retrieved_context_reaches_provider_and_is_logged(app, client):
+    import json
+
+    from linbot.retrieval.embedder import FakeEmbedder
+    from linbot.retrieval.retriever import Retriever
+    from linbot.storage.models import Chunk
+
+    embedder = FakeEmbedder()
+    [embedding] = await embedder.embed(["Alex teaches computer science at Brentwood"], "document")
+    async with app.state.session_factory() as session:
+        session.add(
+            Chunk(
+                source_url="https://alexlinyx.com/content/about.md",
+                heading="About",
+                content="Alex teaches computer science at Brentwood",
+                embedding=json.dumps(embedding),
+            )
+        )
+        await session.commit()
+    app.state.retriever = Retriever(
+        embedder, app.state.session_factory, top_k=2, min_similarity=0.0
+    )
+
+    response = await client.post("/ask", json={"question": "who teaches computer science"})
+    assert response.status_code == 200
+
+    fake_provider = app.state.model_router.primary
+    assert fake_provider.last_context is not None
+    assert "Brentwood" in fake_provider.last_context[0]
+
+    async with app.state.session_factory() as session:
+        rows = (await session.execute(select(RequestLog))).scalars().all()
+    assert json.loads(rows[0].retrieved_sources) == ["https://alexlinyx.com/content/about.md"]
+
+
 async def test_rate_limit_is_429(tmp_path):
     from httpx import ASGITransport, AsyncClient
 

@@ -199,3 +199,22 @@ LinBot/
 - A provider refusal (HTTP 200 with `stop_reason: "refusal"`) maps to the same `ProviderError` as a network failure — the student gets a fallback answer or a clean 502, never a half-empty response.
 
 **Next session:** Set a real provider API key in Railway, flip `PROVIDER` off `fake`, and verify the first real model answer lands in the production `requests` table. Then start accumulating Phase 1 traffic.
+
+### Session 5 — Live with Claude, a chat page, and RAG over the website
+
+**Goal:** Serve real model answers, give the service a browser chat surface, and ground answers in content from alexlinyx.com.
+
+**What we worked on:**
+
+- Went live: `PROVIDER=anthropic` with `claude-haiku-4-5` answering student questions in ~1s, every request logged with attribution. A minimal chat page now lives at `GET /` — dependency-free HTML that calls the same `POST /ask` as any client.  
+- Implemented **retrieval-augmented generation (RAG)**. The site publishes `llms.txt` (an index of markdown pages, per the llms.txt convention), so ingestion needs no HTML crawler: fetch the index, follow same-host `.md`/`.txt` links, strip frontmatter, chunk by heading, embed with **Voyage AI** (`voyage-3.5-lite`), store in a new `chunks` table. Template stubs (like the unfilled `llms-full.txt`) are detected and skipped.  
+- At question time the `Retriever` embeds the query, ranks chunks by cosine similarity in Python, and passes the top matches into the model call. The seam widened by one parameter — `generate_answer(question, context)` — with the retrieved material carried in the *user* message so the system prompt stays fixed and versioned (bumped to `v2` with grounding guidance).  
+- Each request now also logs `retrieved_sources` — which pages grounded the answer — extending the eval story: we can later measure whether retrieval helped.
+
+**Decisions recorded:**
+
+- **Embeddings are stored as JSON arrays and compared in Python, not pgvector.** The corpus is ~25 chunks; a linear scan is microseconds, keeps SQLite tests working, and needs no database extension. The `Retriever` interface hides this — when the corpus outgrows it, pgvector is an internal swap.  
+- **RAG is optional by config**: without `VOYAGE_API_KEY` the app boots and answers un-grounded; retrieval failures also degrade to un-grounded answers, never failed requests (same philosophy as the provider fallback).  
+- Re-ingestion is a manual CLI (`python -m linbot.ingest`), run after site updates.
+
+**Next session:** Ingest for real once `VOYAGE_API_KEY` exists, verify grounded answers cite site facts, and fill in `llms-full.txt` / the stub pages with real content — retrieval quality is bounded by what the site actually says.

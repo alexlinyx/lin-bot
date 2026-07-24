@@ -34,14 +34,14 @@ class ModelRouter:
             return self.candidate
         return self.primary
 
-    async def answer(self, question: str) -> Answer:
+    async def answer(self, question: str, context: list[str] | None = None) -> Answer:
         chosen = self._choose()
         try:
-            return await chosen.generate_answer(question)
+            return await chosen.generate_answer(question, context)
         except ProviderError:
             if self.fallback is None or self.fallback is chosen:
                 raise
             # A cold or failing primary degrades to a known-good provider,
             # not to an error in the student's face (ROADMAP §12).
-            result = await self.fallback.generate_answer(question)
+            result = await self.fallback.generate_answer(question, context)
             return replace(result, fallback_used=True)

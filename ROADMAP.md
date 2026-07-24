@@ -122,6 +122,10 @@ The provider, model name, and any endpoint URL are config values, not hardcoded 
 | `MODEL_NAME` | Which model/version to call on the primary provider | all |
 | `ANTHROPIC_API_KEY` | Auth for the Anthropic API (Claude models) | optional |
 | `ANTHROPIC_MODEL_NAME` | Claude model to call (default `claude-haiku-4-5`) | optional |
+| `VOYAGE_API_KEY` | Auth for Voyage AI embeddings (enables RAG; optional) | RAG |
+| `VOYAGE_MODEL` | Embedding model (default `voyage-3.5-lite`) | RAG |
+| `RAG_SOURCE_URL` | llms.txt index to ingest (default alexlinyx.com) | RAG |
+| `RAG_TOP_K` / `RAG_MIN_SIMILARITY` | Retrieval depth and relevance floor | RAG |
 | `CANARY_PROVIDER` | Candidate provider receiving canary traffic | 2+ |
 | `CANARY_PERCENT` | Share of traffic (0–100) sent to the candidate model | 2+ |
 | `FALLBACK_PROVIDER` | Known-good provider used when the chosen one fails | 2+ |

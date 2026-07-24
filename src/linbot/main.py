@@ -78,6 +78,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = create_session_factory(engine)
     app.state.model_router = build_model_router(settings)
 
+    # RAG is optional: without a Voyage key the bot answers un-grounded.
+    app.state.retriever = None
+    if settings.voyage_api_key:
+        from linbot.retrieval.embedder import VoyageEmbedder
+        from linbot.retrieval.retriever import Retriever
+
+        app.state.retriever = Retriever(
+            embedder=VoyageEmbedder(settings.voyage_api_key, settings.voyage_model),
+            session_factory=app.state.session_factory,
+            top_k=settings.rag_top_k,
+            min_similarity=settings.rag_min_similarity,
+        )
+
     from linbot.server.ratelimit import SlidingWindowLimiter
 
     app.state.limiter = SlidingWindowLimiter(

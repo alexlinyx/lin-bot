@@ -13,7 +13,7 @@ import time
 import httpx
 
 from linbot.model.base import Answer, ProviderError
-from linbot.model.prompts import SYSTEM_PROMPT
+from linbot.model.prompts import SYSTEM_PROMPT, build_user_message
 
 
 class OpenAICompatChatProvider:
@@ -33,12 +33,12 @@ class OpenAICompatChatProvider:
             timeout=timeout_seconds,
         )
 
-    async def generate_answer(self, question: str) -> Answer:
+    async def generate_answer(self, question: str, context: list[str] | None = None) -> Answer:
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": question},
+                {"role": "user", "content": build_user_message(question, context)},
             ],
         }
         start = time.monotonic()

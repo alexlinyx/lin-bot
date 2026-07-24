@@ -35,3 +35,23 @@ class RequestLog(Base):
     client_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     system_prompt_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retrieved_sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
+
+
+class Chunk(Base):
+    """A chunk of site content for retrieval (RAG).
+
+    The embedding is stored as a JSON float array and similarity is computed
+    in Python: the corpus is dozens of chunks, where a linear scan is faster
+    than the operational cost of a vector extension. The Retriever interface
+    hides this — growing into pgvector later is an internal swap.
+    """
+
+    __tablename__ = "chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    source_url: Mapped[str] = mapped_column(String(500), index=True)
+    heading: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[str] = mapped_column(Text)  # JSON float array
