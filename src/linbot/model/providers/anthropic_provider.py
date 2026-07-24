@@ -3,8 +3,9 @@
 Unlike DeepSeek and HF TGI/vLLM, Anthropic's Messages API is not
 OpenAI-compatible (different endpoint, auth header, and response shape), so
 this provider uses the official `anthropic` SDK rather than the shared
-OpenAI-style client. Adaptive thinking is enabled — Claude decides per
-question how much to reason before answering.
+OpenAI-style client. On models that support it (Claude 4.6+), adaptive
+thinking is enabled — Claude decides per question how much to reason
+before answering.
 """
 
 from __future__ import annotations
@@ -26,14 +27,20 @@ class AnthropicProvider:
         self._client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)
 
     async def generate_answer(self, question: str) -> Answer:
+        # Adaptive thinking exists on Claude 4.6+ models only; sending it to
+        # Haiku 4.5 (or older) returns a 400, so it's applied conditionally.
+        extra: dict = {}
+        if not self.model.startswith(("claude-haiku", "claude-sonnet-4-5")):
+            extra["thinking"] = {"type": "adaptive"}
+
         start = time.monotonic()
         try:
             response = await self._client.messages.create(
                 model=self.model,
                 max_tokens=16000,
                 system=SYSTEM_PROMPT,
-                thinking={"type": "adaptive"},
                 messages=[{"role": "user", "content": question}],
+                **extra,
             )
         except anthropic.APIStatusError as exc:
             raise ProviderError(f"anthropic returned HTTP {exc.status_code}") from exc

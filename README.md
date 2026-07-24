@@ -195,7 +195,7 @@ LinBot/
 
 **Decisions recorded:**
 
-- Default Claude model is `claude-opus-4-8`, configurable via `ANTHROPIC_MODEL_NAME`.  
+- Default Claude model is `claude-haiku-4-5` (fast and cost-effective for testing), configurable via `ANTHROPIC_MODEL_NAME`. Adaptive thinking is sent only for Claude 4.6+ models, which Haiku 4.5 is not.  
 - A provider refusal (HTTP 200 with `stop_reason: "refusal"`) maps to the same `ProviderError` as a network failure — the student gets a fallback answer or a clean 502, never a half-empty response.
 
 **Next session:** Set a real provider API key in Railway, flip `PROVIDER` off `fake`, and verify the first real model answer lands in the production `requests` table. Then start accumulating Phase 1 traffic.

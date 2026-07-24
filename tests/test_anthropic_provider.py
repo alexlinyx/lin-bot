@@ -7,12 +7,13 @@ from linbot.model.base import ProviderError
 from linbot.model.providers.anthropic_provider import build_anthropic_provider
 
 
-def make_provider():
+def make_provider(**overrides):
     settings = Settings(
         _env_file=None,
         provider="anthropic",
         anthropic_api_key="sk-ant-test",
         database_url="sqlite+aiosqlite://",
+        **overrides,
     )
     provider = build_anthropic_provider(settings)
     # No SDK retries in tests — errors should surface immediately.
@@ -20,12 +21,12 @@ def make_provider():
     return provider
 
 
-def message_body(content, stop_reason="end_turn"):
+def message_body(content, stop_reason="end_turn", model="claude-haiku-4-5"):
     return {
         "id": "msg_test",
         "type": "message",
         "role": "assistant",
-        "model": "claude-opus-4-8",
+        "model": model,
         "content": content,
         "stop_reason": stop_reason,
         "stop_sequence": None,
@@ -38,12 +39,7 @@ async def test_anthropic_success_extracts_text_blocks():
     route = respx.post("https://api.anthropic.com/v1/messages").mock(
         return_value=Response(
             200,
-            json=message_body(
-                [
-                    {"type": "thinking", "thinking": "", "signature": "sig"},
-                    {"type": "text", "text": "A hash map uses a hash function."},
-                ]
-            ),
+            json=message_body([{"type": "text", "text": "A hash map uses a hash function."}]),
         )
     )
     provider = make_provider()
@@ -51,7 +47,7 @@ async def test_anthropic_success_extracts_text_blocks():
     await provider.aclose()
 
     assert answer.text == "A hash map uses a hash function."
-    assert answer.model_id == "claude-opus-4-8"
+    assert answer.model_id == "claude-haiku-4-5"
     assert answer.provider == "anthropic"
 
     request = route.calls.last.request
@@ -60,9 +56,35 @@ async def test_anthropic_success_extracts_text_blocks():
     import json
 
     body = json.loads(request.content)
-    assert body["thinking"] == {"type": "adaptive"}
+    assert body["model"] == "claude-haiku-4-5"
+    assert "thinking" not in body  # Haiku 4.5 doesn't support adaptive thinking
     assert body["system"]  # TA system prompt present
     assert body["messages"] == [{"role": "user", "content": "How does a hash map work?"}]
+
+
+@respx.mock
+async def test_anthropic_adaptive_thinking_sent_for_supporting_models():
+    route = respx.post("https://api.anthropic.com/v1/messages").mock(
+        return_value=Response(
+            200,
+            json=message_body(
+                [
+                    {"type": "thinking", "thinking": "", "signature": "sig"},
+                    {"type": "text", "text": "An answer."},
+                ],
+                model="claude-opus-4-8",
+            ),
+        )
+    )
+    provider = make_provider(anthropic_model_name="claude-opus-4-8")
+    answer = await provider.generate_answer("q")
+    await provider.aclose()
+
+    assert answer.text == "An answer."  # thinking block filtered out
+    import json
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["thinking"] == {"type": "adaptive"}
 
 
 @respx.mock

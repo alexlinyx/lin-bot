@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Anthropic Claude (alternative hosted provider for testing/comparison)
     anthropic_api_key: str | None = None
-    anthropic_model_name: str = "claude-opus-4-8"
+    anthropic_model_name: str = "claude-haiku-4-5"
 
     # Storage
     database_url: str

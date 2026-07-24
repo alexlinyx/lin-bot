@@ -121,7 +121,7 @@ The provider, model name, and any endpoint URL are config values, not hardcoded 
 | `HF_MODEL_NAME` | Name/version of the fine-tuned model on the endpoint | 2+ |
 | `MODEL_NAME` | Which model/version to call on the primary provider | all |
 | `ANTHROPIC_API_KEY` | Auth for the Anthropic API (Claude models) | optional |
-| `ANTHROPIC_MODEL_NAME` | Claude model to call (default `claude-opus-4-8`) | optional |
+| `ANTHROPIC_MODEL_NAME` | Claude model to call (default `claude-haiku-4-5`) | optional |
 | `CANARY_PROVIDER` | Candidate provider receiving canary traffic | 2+ |
 | `CANARY_PERCENT` | Share of traffic (0–100) sent to the candidate model | 2+ |
 | `FALLBACK_PROVIDER` | Known-good provider used when the chosen one fails | 2+ |
