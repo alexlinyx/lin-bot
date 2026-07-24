@@ -1,0 +1,15 @@
+# Local development Postgres. Production uses Railway's managed Postgres.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: linbot
+      POSTGRES_PASSWORD: linbot
+      POSTGRES_DB: linbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
