@@ -1,5 +1,11 @@
 # Deploying LinBot to Railway
 
+**Production URL:** https://agent.alexlinyx.com — a Railway custom domain
+(CNAME `agent` → `fyuuuaao.up.railway.app` plus a `_railway-verify.agent` TXT
+record, both DNS-only in Cloudflare; Railway issues and renews the TLS
+certificate). The default `lin-bot-production.up.railway.app` URL remains as
+an alias of the same service.
+
 The service runs as one always-on container plus a managed Postgres database.
 At ~10 concurrent users the async server is nowhere near its limits; the reason
 for a *paid, always-on* instance is the "always up" requirement — free tiers
