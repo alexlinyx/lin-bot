@@ -36,6 +36,11 @@ class RequestLog(Base):
     system_prompt_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     retrieved_sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
+    # Groups rows into full conversations: the browser mints a random ID per
+    # page load (fresh on refresh), and turn orders the rows within it. The
+    # server keeps no conversation state — this is labeling, not memory.
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
+    turn: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Chunk(Base):

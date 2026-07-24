@@ -232,6 +232,7 @@ LinBot/
 **Decisions recorded:**
 
 - **LinBot has no memory by design.** Conversation context exists only in the browser tab for the life of the page. The Postgres request log remains write-only training/eval data — nothing ever reads it back into a prompt.  
+- **The log groups rows into full conversations.** The browser mints a random `conversation_id` per page load (fresh on refresh) and each row records it plus a turn number, so complete multi-turn transcripts can be reconstructed for fine-tuning — chat training data is (history, question, answer), not isolated pairs. The ID is a label, never a lookup key: the server still stores no conversation state.  
 - The subdomain is the canonical URL; the Railway default URL remains as an alias.
 
 **Next session:** Fill in the site's stub pages and re-ingest; consider funding the Voyage account (raises the embedding rate limit from ~3 to ~2000 requests/min) so retrieval never silently degrades.

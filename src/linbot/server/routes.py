@@ -76,8 +76,11 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
         raise HTTPException(status_code=429, detail="rate limit exceeded, try again shortly")
 
     # Conversation history rides in from the client and goes straight to the
-    # model call — it is never stored, so a page refresh resets the session.
+    # model call — the transcript itself is never stored server-side. Log rows
+    # carry the client's conversation label and a turn number so the log can
+    # be regrouped into full conversations for training/eval.
     history = _sanitize_history(payload.history)
+    turn = len(history) // 2
 
     # Retrieval (RAG): ground the answer in site content when a retriever is
     # configured. Retrieval failures degrade to an un-grounded answer.
@@ -102,6 +105,8 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
             client_id=client_id,
             system_prompt_version=SYSTEM_PROMPT_VERSION,
             error=str(exc),
+            conversation_id=payload.conversation_id,
+            turn=turn,
         )
         raise HTTPException(status_code=502, detail="the model service is unavailable") from exc
 
@@ -118,5 +123,7 @@ async def ask(payload: AskRequest, request: Request, background: BackgroundTasks
         client_id=client_id,
         system_prompt_version=SYSTEM_PROMPT_VERSION,
         retrieved_sources=retrieved_sources,
+        conversation_id=payload.conversation_id,
+        turn=turn,
     )
     return AskResponse(answer=answer.text)

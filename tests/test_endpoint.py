@@ -98,6 +98,44 @@ async def test_history_is_trimmed_and_starts_with_user(app, client):
     assert received[-1] == {"role": "assistant", "content": "m29"}
 
 
+async def test_conversation_grouping_logged(app, client):
+    conversation_id = "7e6a3f66-90a1-4c1e-9f6e-1f6f37b2a001"
+    first = await client.post(
+        "/ask", json={"question": "What is BCIL?", "conversation_id": conversation_id}
+    )
+    assert first.status_code == 200
+    followup = await client.post(
+        "/ask",
+        json={
+            "question": "who runs it?",
+            "conversation_id": conversation_id,
+            "history": [
+                {"role": "user", "content": "What is BCIL?"},
+                {"role": "assistant", "content": first.json()["answer"]},
+            ],
+        },
+    )
+    assert followup.status_code == 200
+
+    async with app.state.session_factory() as session:
+        rows = (
+            (await session.execute(select(RequestLog).order_by(RequestLog.turn)))
+            .scalars()
+            .all()
+        )
+    assert [str(r.conversation_id) for r in rows] == [conversation_id] * 2
+    assert [(r.turn, r.question) for r in rows] == [(0, "What is BCIL?"), (1, "who runs it?")]
+
+
+async def test_conversation_id_optional_for_bare_api_callers(app, client):
+    response = await client.post("/ask", json={"question": "no id"})
+    assert response.status_code == 200
+    async with app.state.session_factory() as session:
+        rows = (await session.execute(select(RequestLog))).scalars().all()
+    assert rows[0].conversation_id is None
+    assert rows[0].turn == 0
+
+
 async def test_invalid_history_role_is_400(client):
     response = await client.post(
         "/ask",

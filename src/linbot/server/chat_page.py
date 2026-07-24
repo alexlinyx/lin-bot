@@ -70,6 +70,9 @@ CHAT_PAGE = """<!doctype html>
   // Refreshing the page discards it; nothing is stored anywhere else.
   const history = [];
   const MAX_HISTORY = 20;
+  // Fresh random label per page load; groups this tab's turns in the server
+  // log so conversations can be reconstructed for training data.
+  const conversationId = crypto.randomUUID();
 
   function add(cls, text) {
     const div = document.createElement("div");
@@ -92,7 +95,11 @@ CHAT_PAGE = """<!doctype html>
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
+        body: JSON.stringify({
+          question,
+          history: history.slice(-MAX_HISTORY),
+          conversation_id: conversationId,
+        }),
       });
       const body = await res.json();
       pending.remove();
