@@ -98,8 +98,12 @@ CHAT_PAGE = """<!doctype html>
                '<a href="$2" target="_blank" rel="noopener">$1</a>')
       .replace(/^#{1,4} (.+)$/gm, "<strong>$1</strong>")
       .replace(/^([ \\t]*)[-*] /gm, "$1\\u2022 ")
-      .replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^*])\\*([^*\\n]+)\\*(?!\\*)/g, "$1<em>$2</em>");
+      .replace(/\\*\\*\\*([^*\\n]+)\\*\\*\\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\\*\\*([^*\\n]+)\\*\\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\\*([^*\\n]+)\\*(?!\\*)/g, "$1<em>$2</em>")
+      .replace(/___([^_\\n]+)___/g, "<strong><em>$1</em></strong>")
+      .replace(/__([^_\\n]+)__/g, "<strong>$1</strong>")
+      .replace(/(^|[\\s(>])_([^_\\n]+)_(?!\\w)/gm, "$1<em>$2</em>");
   }
   function renderMarkdown(text) {
     const parts = text.split("```");
