@@ -31,6 +31,16 @@ CHAT_PAGE = """<!doctype html>
   }
   .msg { padding: 10px 14px; border-radius: 12px; max-width: 85%;
          white-space: pre-wrap; line-height: 1.45; }
+  .msg code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+    background: light-dark(#efede8, #1d1f21); padding: 1px 5px; border-radius: 5px;
+  }
+  .msg pre {
+    background: light-dark(#efede8, #1d1f21); padding: 10px 12px;
+    border-radius: 8px; overflow-x: auto; margin: 6px 0;
+  }
+  .msg pre code { background: none; padding: 0; }
+  .msg a { color: light-dark(#3d6b35, #8fbf85); }
   .user { align-self: flex-end; background: light-dark(#d8e6d3, #2f4331); }
   .bot  { align-self: flex-start; background: light-dark(#ffffff, #26282b);
           border: 1px solid light-dark(#e2e0da, #2c2e31); }
@@ -74,10 +84,48 @@ CHAT_PAGE = """<!doctype html>
   // log so conversations can be reconstructed for training data.
   const conversationId = crypto.randomUUID();
 
+  // Minimal markdown renderer for bot replies: HTML is escaped first, then a
+  // few safe constructs (bold, italic, code, links, bullets) are re-applied.
+  // No external libraries, no raw model HTML ever reaches innerHTML.
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function inline(s) {
+    return s
+      .replace(/`([^`\\n]+)`/g, "<code>$1</code>")
+      .replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g,
+               '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/^#{1,4} (.+)$/gm, "<strong>$1</strong>")
+      .replace(/^([ \\t]*)[-*] /gm, "$1\\u2022 ")
+      .replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\\*([^*\\n]+)\\*(?!\\*)/g, "$1<em>$2</em>");
+  }
+  function renderMarkdown(text) {
+    const parts = text.split("```");
+    let out = "";
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        const code = parts[i].replace(/^[\\w-]*\\n/, "").replace(/\\n$/, "");
+        out += "<pre><code>" + esc(code) + "</code></pre>";
+      } else {
+        let seg = parts[i];
+        if (i > 0) seg = seg.replace(/^\\n/, "");
+        if (i < parts.length - 1) seg = seg.replace(/\\n$/, "");
+        out += inline(esc(seg));
+      }
+    }
+    return out;
+  }
+
   function add(cls, text) {
     const div = document.createElement("div");
     div.className = "msg " + cls;
-    div.textContent = text;
+    if (cls === "bot") {
+      div.innerHTML = renderMarkdown(text);
+    } else {
+      div.textContent = text;
+    }
     log.appendChild(div);
     log.scrollTop = log.scrollHeight;
     return div;
