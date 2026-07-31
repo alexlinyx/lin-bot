@@ -110,5 +110,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def on_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
 
+    # Password gate (see server/auth.py). Middleware runs before any route, so
+    # without a valid signed cookie the chat page and API are never served.
+    if settings.access_password:
+        from fastapi.responses import RedirectResponse
+
+        from linbot.server.auth import SESSION_COOKIE, verify_session_token
+        from linbot.server.auth import router as auth_router
+
+        app.state.login_limiter = SlidingWindowLimiter(
+            limit=settings.login_rate_limit, window_seconds=60
+        )
+        secret = settings.session_secret or settings.access_password
+        exempt_paths = {"/login", "/healthz"}
+
+        @app.middleware("http")
+        async def require_session(request: Request, call_next):
+            if request.url.path in exempt_paths:
+                return await call_next(request)
+            token = request.cookies.get(SESSION_COOKIE)
+            if token and verify_session_token(secret, token):
+                return await call_next(request)
+            if request.method in ("GET", "HEAD"):
+                return RedirectResponse("/login", status_code=303)
+            return JSONResponse(status_code=401, content={"error": "authentication required"})
+
+        app.include_router(auth_router)
+
     app.include_router(api_router)
     return app

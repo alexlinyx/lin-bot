@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     max_question_chars: int = 4000
     request_timeout_seconds: float = 60.0
 
+    # Access gate: when ACCESS_PASSWORD is set, every page and API route
+    # requires a login session (only /login and /healthz stay open).
+    # SESSION_SECRET signs the session cookie; it defaults to the password.
+    access_password: str | None = None
+    session_secret: str | None = None
+    session_ttl_seconds: int = 2_592_000  # 30 days
+    login_rate_limit: int = 10  # login attempts per client per minute
+
     # HTTP
     port: int = 8000
 
