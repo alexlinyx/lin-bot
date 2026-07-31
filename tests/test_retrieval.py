@@ -28,6 +28,30 @@ def test_extract_page_links_same_host_md_txt_only():
     ]
 
 
+@respx.mock
+async def test_fetch_sources_excludes_llms_full(tmp_path):
+    from linbot.retrieval.ingest import fetch_sources
+    from tests.conftest import make_settings
+
+    index = "[About](/content/about.md)\n[Full](/llms-full.txt)\n"
+    respx.get("https://alexlinyx.com/llms.txt").mock(return_value=Response(200, text=index))
+    respx.get("https://alexlinyx.com/content/about.md").mock(
+        return_value=Response(200, text="# About\n" + "real content " * 50)
+    )
+    full = respx.get("https://alexlinyx.com/llms-full.txt").mock(
+        return_value=Response(200, text="# Full\n" + "real content " * 50)
+    )
+
+    sources = await fetch_sources(
+        make_settings(tmp_path, rag_source_url="https://alexlinyx.com/llms.txt")
+    )
+    assert set(sources) == {
+        "https://alexlinyx.com/llms.txt",
+        "https://alexlinyx.com/content/about.md",
+    }
+    assert not full.called
+
+
 def test_chunk_markdown_splits_by_heading():
     text = "intro line\n\n# One\nalpha\n\n## Two\nbeta\ngamma\n"
     chunks = chunk_markdown(text)

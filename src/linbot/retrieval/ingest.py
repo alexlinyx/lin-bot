@@ -1,9 +1,12 @@
 """Ingest site content from llms.txt into the chunks table.
 
 The site publishes llms.txt (an index of markdown pages, per the llms.txt
-convention) and optionally llms-full.txt (everything concatenated). We fetch
-the index, follow its same-host links to markdown/text pages, chunk each page
-by heading, embed the chunks, and replace each source's rows atomically.
+convention). We fetch the index, follow its same-host links to markdown/text
+pages, chunk each page by heading, embed the chunks, and replace each
+source's rows atomically. llms-full.txt (the site concatenated into one file)
+is deliberately NOT ingested: it duplicates the linked pages, which would
+double every fact in the corpus and blur per-page source attribution — it
+exists for external AI tools, not for our own retrieval.
 
 Run with:  python -m linbot.ingest
 """
@@ -98,21 +101,18 @@ def _is_substantive(text: str) -> bool:
 
 
 async def fetch_sources(settings: Settings) -> dict[str, str]:
-    """Return {source_url: text} for the index, its linked pages, and
-    llms-full.txt when it has real content."""
+    """Return {source_url: text} for the index and its linked pages.
+
+    llms-full.txt is excluded even when the index links it — it duplicates
+    the individual pages (see module docstring)."""
     sources: dict[str, str] = {}
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         index_url = settings.rag_source_url
         index = (await client.get(index_url)).raise_for_status().text
         sources[index_url] = index
 
-        candidates = extract_page_links(index, index_url)
-        full_url = urljoin(index_url, "llms-full.txt")
-        if full_url not in candidates:
-            candidates.append(full_url)
-
-        for url in candidates:
-            if url == index_url:
+        for url in extract_page_links(index, index_url):
+            if url == index_url or urlparse(url).path.endswith("llms-full.txt"):
                 continue
             try:
                 text = (await client.get(url)).raise_for_status().text
@@ -138,6 +138,12 @@ async def ingest(settings: Settings) -> int:
     sources = await fetch_sources(settings)
     total = 0
     try:
+        # llms-full.txt is no longer ingested; drop any rows from before the
+        # exclusion so duplicates can't linger in the corpus.
+        full_url = urljoin(settings.rag_source_url, "llms-full.txt")
+        async with session_factory() as session:
+            await session.execute(delete(Chunk).where(Chunk.source_url == full_url))
+            await session.commit()
         for url, text in sources.items():
             pairs = chunk_markdown(text)
             if not pairs:
